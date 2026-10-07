@@ -141,9 +141,21 @@ fprintf('%8s| %9.2f %9.2f  [kJ/kg/K]\n','Total S',S1/kJ,S2/kJ);
 fprintf('----------------------------------------------\n%8s| %9.4f %9.4f  [K]\n----------------------------------------------\n','T2-int vs T2-bis',T2int,T2bis);
 %% Here starts your part (compressor,combustor,turbine and nozzle). ...
 % Make a choice for which type of solution method you want to use.
-%% [2-3] Compressor :: placeholder so this file runs on its own, replace by the compressor part (must give T3 and P3)
+
+
+
+%% [2-3] Compressor :: placeholder so this file runs on its own, replace by the compressor part (must give T3 and P3)-
 P3 = P3overP2*P2;                                                           % Given pressure ratio
 T3 = interp1(sair_a,TR,s2thermal+Rg*log(P3/P2));                            % Isentropic: thermal entropy rises by Rg*ln(P3/P2)
+
+for i=1:NSp                                                                 %Check
+    hi3air(i) = HNasa(T3,SpS(i));
+end
+
+h3 = Yair*hi3air';
+
+
+
 %% [3-4] Combustor :: composition before and after the combustor
 % Needs T3 and P3 from the compressor. Fuel and air both enter at T3.
 sPart = 'Combustor';
@@ -164,6 +176,8 @@ Yprod(3) = Yreac(3)+nC*nfuel*Mi(3);          % CO2 that is formed
 Yprod(4) = Yreac(4)+nH/2*nfuel*Mi(4);        % H2O that is formed
 Rgreac = Runiv*sum(Yreac./Mi);               % Gas constant unburnt mixture [J/kg/K]
 Rgprod = Runiv*sum(Yprod./Mi);               % Gas constant burnt mixture [J/kg/K]
+
+
 %% [3-4] Combustor :: thermodynamic computations
 P4 = P3;                                     % Combustion at constant pressure
 v3 = 0;v4 = 0;                               % Velocities in the engine are neglected
@@ -192,3 +206,43 @@ for i=[1 2 5 3 4]
     fprintf('%8s| %9.5f %9.5f  [kg/kg]\n',SpS(i).Name,Yreac(i),Yprod(i));
 end
 fprintf('%8s| %9.2f %9.2f  [J/kg/K]\n','Rg',Rgreac,Rgprod);
+
+
+%%[4-5] Turbine
+
+sPart = 'Turbine';                                                          % Defines word turbine.                            
+
+compressorPower = mairrate*(h3-h2);                                         %Calculates how much power the compressor requires from the turbine. The compressor acts only on the air mass flow.
+
+h5 = h4-compressorPower/mtotrate;
+
+T5 = interp1(hprod_a,TR,h5);                                                %Searches the combustion/product enthalpy curve and finds the temperature that corresponds to h5.
+
+for i=1:NSp                                                                 %Starts a loop through all five species: Gasoline, O2, CO2, H2O, and N2.
+    si4(i) = SNasa(T4,SpS(i));
+    si5(i) = SNasa(T5,SpS(i));
+end
+
+s4thermal = Yprod*si4';                                                     %Combines the entropy values of all species according to the combustion/product mass fractions.
+
+s5thermal = Yprod*si5';                                                     %Same thing at state 5
+
+lnP5overP4 = (s5thermal-s4thermal)/Rgprod;                                  %Total entropy stays constant. That gives the pressure ratio from the change in thermal entropy.
+
+P5 = P4*exp(lnP5overP4);                                                    %Removes natural logarithm and gives the actual pressure ratio.
+
+turbinePower = mtotrate*(h4-h5);                                            %Recalculates the turbine power as a check. It should be identical to compressorPower.
+
+S4 = s4thermal-Rgprod*log(P4/Pref);                                         %Calculates the full specific entropy at state 4, including the pressure contribution.
+
+S5 = s5thermal-Rgprod*log(P5/Pref);                                         %Full entropy at state 5. Since the turbine is isentropic, it should give approx. S4=S5.
+
+fprintf('\nStage  ||%14s        [unit]\n      NR|%9i %9i\n',sPart,4,5);     %Print results...
+fprintf('-------------------------------------\n');
+fprintf('%8s| %9.2f %9.2f  [K]\n','Temp',T4,T5);
+fprintf('%8s| %9.2f %9.2f  [kPa]\n','Press',P4/kPa,P5/kPa);
+fprintf('---  H/S    -------------------------\n');
+fprintf('%8s| %9.2f %9.2f  [kJ/kg]\n','h',h4/kJ,h5/kJ);
+fprintf('%8s| %9.2f %9.2f  [kJ/kg/K]\n','Total S',S4/kJ,S5/kJ);
+fprintf('%8s| %9.2f  [kW]\n','Compressor power',compressorPower/kJ);
+fprintf('%8s| %9.2f  [kW]\n','Turbine power',turbinePower/kJ);
