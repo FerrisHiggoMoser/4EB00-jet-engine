@@ -145,15 +145,38 @@ fprintf('----------------------------------------------\n%8s| %9.4f %9.4f  [K]\n
 
 
 %% [2-3] Compressor :: placeholder so this file runs on its own, replace by the compressor part (must give T3 and P3)-
-P3 = P3overP2*P2;                                                           % Given pressure ratio
-T3 = interp1(sair_a,TR,s2thermal+Rg*log(P3/P2));                            % Isentropic: thermal entropy rises by Rg*ln(P3/P2)
+%% Compressor
 
-for i=1:NSp                                                                 %Check
-    hi3air(i) = HNasa(T3,SpS(i));
+cMethod = 'Interpolation Method';
+sPart = 'Compressor';
+
+v2 = 0;
+v3 = v2;
+
+P3 = P3overP2*P2; %Given ratio at the start.
+S3 = S2; %For compressor, specific entropy is conserved.
+
+
+s3thermal = s2thermal + Rg*log(P3/P2); %Using the given function for specific entropy conservation.
+T3 = interp1(sair_a,TR,s3thermal);
+
+
+for i = 1:NSp
+    h3(i) = HNasa(T3,SpS(i));
 end
+h3check = Yair*h3';
 
-h3 = Yair*hi3air';
 
+% Print to screen
+fprintf('\n%14s\n',cMethod);
+fprintf('Stage  ||%14s        [unit]\n      NR|%9i %9i\n',sPart,1,2);
+fprintf('-------------------------------------\n');
+fprintf('%8s| %9.2f %9.2f  [K]\n','Temp',T2,T3);
+fprintf('%8s| %9.2f %9.2f  [kPa]\n','Press',P2/kPa,P3/kPa);
+fprintf('%8s| %9.2f %9.2f  [m/s]\n','v',v2,v3);
+fprintf('---  H/S    -------------------------\n');
+fprintf('%8s| %9.2f %9.2f  [kJ/kg]\n','h',h2/kJ,h3/kJ);
+fprintf('%8s| %9.2f %9.2f  [kJ/kg/K]\n','Total S',S2/kJ,S3/kJ);
 
 
 %% [3-4] Combustor :: composition before and after the combustor
