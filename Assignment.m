@@ -161,7 +161,7 @@ s3thermal = s2thermal + Rg*log(P3/P2); %Using the given function for specific en
 T3 = interp1(sair_a,TR,s3thermal);
 
 
-for i = 1:NSp
+for hi = 1:NSp
     hi3(i) = HNasa(T3,SpS(i));
 end
 h3 = Yair*hi3';
