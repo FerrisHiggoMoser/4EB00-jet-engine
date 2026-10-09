@@ -169,7 +169,7 @@ h3 = Yair*hi3';
 
 % Print to screen
 fprintf('\n%14s\n',cMethod);
-fprintf('Stage  ||%14s        [unit]\n      NR|%9i %9i\n',sPart,1,2);
+fprintf('Stage  ||%14s        [unit]\n      NR|%9i %9i\n',sPart,2,3);
 fprintf('-------------------------------------\n');
 fprintf('%8s| %9.2f %9.2f  [K]\n','Temp',T2,T3);
 fprintf('%8s| %9.2f %9.2f  [kPa]\n','Press',P2/kPa,P3/kPa);
