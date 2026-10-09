@@ -162,9 +162,9 @@ T3 = interp1(sair_a,TR,s3thermal);
 
 
 for i = 1:NSp
-    h3(i) = HNasa(T3,SpS(i));
+    hi3(i) = HNasa(T3,SpS(i));
 end
-h3check = Yair*h3';
+h3 = Yair*hi3';
 
 
 % Print to screen
@@ -233,43 +233,84 @@ fprintf('%8s| %9.2f %9.2f  [J/kg/K]\n','Rg',Rgreac,Rgprod);
 
 %%[4-5] Turbine
 
-sPart = 'Turbine';                                                          % Defines word turbine.                            
+sPart = 'Turbine';
+ 
+% Power balance: turbine drives the compressor (no mechanical losses)
 
-compressorPower = mairrate*(h3-h2);                                         %Calculates how much power the compressor requires from the turbine. The compressor acts only on the air mass flow.
+compressorPower = mairrate*(h3-h2);                                         % [W] compressor acts on air flow only
+h5 = h4 - compressorPower/mtotrate;                                         % [J/kg] turbine handles air + fuel
+ 
+% Exit temperature from product enthalpy curve
 
-h5 = h4-compressorPower/mtotrate;
+T5 = interp1(hprod_a,TR,h5);
+if isnan(T5)
+    error('T5 outside TR range: h5 = %.1f kJ/kg not in table', h5/kJ);
+end
+ 
+% Species properties at states 4 and 5 (preallocated)
 
-T5 = interp1(hprod_a,TR,h5);                                                %Searches the combustion/product enthalpy curve and finds the temperature that corresponds to h5.
+si4 = zeros(1,NSp);  si5 = zeros(1,NSp);
+hi5 = zeros(1,NSp);
+cpi4 = zeros(1,NSp); cpi5 = zeros(1,NSp);
 
-for i=1:NSp                                                                 %Starts a loop through all five species: Gasoline, O2, CO2, H2O, and N2.
-    si4(i) = SNasa(T4,SpS(i));
-    si5(i) = SNasa(T5,SpS(i));
+for i = 1:NSp
+    si4(i)  = SNasa(T4,SpS(i));
+    si5(i)  = SNasa(T5,SpS(i));
+    hi5(i)  = HNasa(T5,SpS(i));                                             % for independent h5 check
+    cpi4(i) = CpNasa(T4,SpS(i));                                            % for sanity check only
+    cpi5(i) = CpNasa(T5,SpS(i));
+end
+ 
+s4thermal = Yprod*si4';                                                     % [J/kg/K] mixture thermal entropy
+s5thermal = Yprod*si5';
+ 
+% Isentropic condition -> exit pressure
+
+lnP5overP4 = (s5thermal - s4thermal)/Rgprod;
+P5 = P4*exp(lnP5overP4);
+ 
+% Full entropies
+S4 = s4thermal - Rgprod*log(P4/Pref);
+S5 = s5thermal - Rgprod*log(P5/Pref);
+ 
+% Checks:
+
+% 1) Entropy conserved (real check of the isentropic step)
+
+if abs(S5-S4) > 1e-6*abs(S4)
+    warning('Turbine not isentropic: S5-S4 = %.3e J/kg/K', S5-S4);
 end
 
-s4thermal = Yprod*si4';                                                     %Combines the entropy values of all species according to the combustion/product mass fractions.
 
-s5thermal = Yprod*si5';                                                     %Same thing at state 5
+% 2) Independent enthalpy check: h at T5 from species data vs h5 from power balance
 
-lnP5overP4 = (s5thermal-s4thermal)/Rgprod;                                  %Total entropy stays constant. That gives the pressure ratio from the change in thermal entropy.
+h5check = Yprod*hi5';
+if abs(h5check-h5) > 1e-3*abs(h5)
+    warning('Interpolated T5 inconsistent: h5 = %.2f, h(T5) = %.2f kJ/kg', h5/kJ, h5check/kJ);
+end
 
-P5 = P4*exp(lnP5overP4);                                                    %Removes natural logarithm and gives the actual pressure ratio.
 
-turbinePower = mtotrate*(h4-h5);                                            %Recalculates the turbine power as a check. It should be identical to compressorPower.
+% 3) Constant-gamma estimate of pressure ratio
 
-S4 = s4thermal-Rgprod*log(P4/Pref);                                         %Calculates the full specific entropy at state 4, including the pressure contribution.
-
-S5 = s5thermal-Rgprod*log(P5/Pref);                                         %Full entropy at state 5. Since the turbine is isentropic, it should give approx. S4=S5.
-
-fprintf('\nStage  ||%14s        [unit]\n      NR|%9i %9i\n',sPart,4,5);     %Print results...
+cpAvg   = Yprod*(cpi4+cpi5)'/2;
+gammaAvg = cpAvg/(cpAvg-Rgprod);
+P5est   = P4*(T5/T4)^(gammaAvg/(gammaAvg-1));
+ 
+turbinePower = mtotrate*(h4-h5);                                            % Equals compressorPower
+ 
+% --- Print results ---
+fprintf('\nStage  ||%14s        [unit]\n      NR|%9i %9i\n',sPart,4,5);
 fprintf('-------------------------------------\n');
 fprintf('%8s| %9.2f %9.2f  [K]\n','Temp',T4,T5);
 fprintf('%8s| %9.2f %9.2f  [kPa]\n','Press',P4/kPa,P5/kPa);
 fprintf('---  H/S    -------------------------\n');
 fprintf('%8s| %9.2f %9.2f  [kJ/kg]\n','h',h4/kJ,h5/kJ);
-fprintf('%8s| %9.2f %9.2f  [kJ/kg/K]\n','Total S',S4/kJ,S5/kJ);
-fprintf('%8s| %9.2f  [kW]\n','Compressor power',compressorPower/kJ);
-fprintf('%8s| %9.2f  [kW]\n','Turbine power',turbinePower/kJ);
-
+fprintf('%8s| %9.4f %9.4f  [kJ/kg/K]\n','Total S',S4/kJ,S5/kJ);
+fprintf('---  Power  -------------------------\n');
+fprintf('%17s| %9.2f  [kW]\n','Compressor power',compressorPower/1e3);
+fprintf('%17s| %9.2f  [kW]\n','Turbine power',turbinePower/1e3);
+fprintf('%17s| %9.3f  [-]\n','P4/P5',P4/P5);
+fprintf('%17s| %9.2f  [kPa] (const-gamma, gamma = %.3f)\n','P5 estimate',P5est/kPa,gammaAvg);
 
 %% [5-6] Nozzle
 sPart = 'Nozzle';
@@ -277,14 +318,14 @@ sPart = 'Nozzle';
 P6 = Pamb;                                                                  % Exit pressure equals ambient (perfectly expanded nozzle)
 v5 = 0;                                                                     % Velocity after the turbine is neglected
 
-sprod_a = Yprod*sia;                                                        % Thermal entropy of the products for the temperature range TR
+sprod_a = Yprod*sia';                                                       % Thermal entropy of the products for the temperature range TR
 s6target = s5thermal + Rgprod*log(P6/P5);                                   % Isentropic relation: thermal entropy changes with pressure
 T6 = interp1(sprod_a,TR,s6target);                                          % Find T6 that matches the required thermal entropy
 
 for i=1:NSp
     hi6(i) = HNasa(T6,SpS(i));
 end
-h6 = Yprod*hi6;                                                             % Enthalpy at nozzle exit
+h6 = Yprod*hi6';                                                            % Enthalpy at nozzle exit
 
 v6 = sqrt(2*(h5-h6));                                                       % Energy balance gives the exit velocity
 
