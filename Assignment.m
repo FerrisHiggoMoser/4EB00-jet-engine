@@ -256,12 +256,12 @@ cpi4 = zeros(1,NSp); cpi5 = zeros(1,NSp);
 for i = 1:NSp
     si4(i)  = SNasa(T4,SpS(i));
     si5(i)  = SNasa(T5,SpS(i));
-    hi5(i)  = HNasa(T5,SpS(i));                                             % for independent h5 check
-    cpi4(i) = CpNasa(T4,SpS(i));                                            % for sanity check only
+    hi5(i)  = HNasa(T5,SpS(i));                                             % Idependent h5 check
+    cpi4(i) = CpNasa(T4,SpS(i));                                            % Checking value
     cpi5(i) = CpNasa(T5,SpS(i));
 end
  
-s4thermal = Yprod*si4';                                                     % [J/kg/K] mixture thermal entropy
+s4thermal = Yprod*si4';                                                     % [J/kg/K] Mixture thermal entropy
 s5thermal = Yprod*si5';
  
 % Isentropic condition -> exit pressure
