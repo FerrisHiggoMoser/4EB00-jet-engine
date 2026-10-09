@@ -269,3 +269,32 @@ fprintf('%8s| %9.2f %9.2f  [kJ/kg]\n','h',h4/kJ,h5/kJ);
 fprintf('%8s| %9.2f %9.2f  [kJ/kg/K]\n','Total S',S4/kJ,S5/kJ);
 fprintf('%8s| %9.2f  [kW]\n','Compressor power',compressorPower/kJ);
 fprintf('%8s| %9.2f  [kW]\n','Turbine power',turbinePower/kJ);
+
+
+%% [5-6] Nozzle
+sPart = 'Nozzle';
+
+P6 = Pamb;                                                                  % Exit pressure equals ambient (perfectly expanded nozzle)
+v5 = 0;                                                                     % Velocity after the turbine is neglected
+
+sprod_a = Yprod*sia;                                                        % Thermal entropy of the products for the temperature range TR
+s6target = s5thermal + Rgprod*log(P6/P5);                                   % Isentropic relation: thermal entropy changes with pressure
+T6 = interp1(sprod_a,TR,s6target);                                          % Find T6 that matches the required thermal entropy
+
+for i=1:NSp
+    hi6(i) = HNasa(T6,SpS(i));
+end
+h6 = Yprod*hi6;                                                             % Enthalpy at nozzle exit
+
+v6 = sqrt(2*(h5-h6));                                                       % Energy balance gives the exit velocity
+
+S6 = s6target - Rgprod*log(P6/Pref);                                        % Total specific entropy at state 6
+
+fprintf('\nStage  ||%14s        [unit]\n      NR|%9i %9i\n',sPart,5,6);
+fprintf('-------------------------------------\n');
+fprintf('%8s| %9.2f %9.2f  [K]\n','Temp',T5,T6);
+fprintf('%8s| %9.2f %9.2f  [kPa]\n','Press',P5/kPa,P6/kPa);
+fprintf('%8s| %9.2f %9.2f  [m/s]\n','v',v5,v6);
+fprintf('---  H/S    -------------------------\n');
+fprintf('%8s| %9.2f %9.2f  [kJ/kg]\n','h',h5/kJ,h6/kJ);
+fprintf('%8s| %9.2f %9.2f  [kJ/kg/K]\n','Total S',S5/kJ,S6/kJ);
